@@ -1,8 +1,11 @@
 const express = require("express");
+const { graphqlHTTP } = require("express-graphql");
+const { GraphQLSchema, GraphQLObjectType, GraphQLString, GraphQLList } = require("graphql");
+
 const app = express();
 const port = 3000;
 
-const series = [
+const seriesData = [
   {
     title: "Criminal Code",
     year: "2023",
@@ -23,17 +26,55 @@ const series = [
   },
 ];
 
-// Function to find a series by title
-const findSeriesByTitle = (title) => {
-  return series.find((s) => s.title.toLowerCase() === title.toLowerCase());
-};
-
-// Endpoint to get all series
-app.get("/api/series", (req, res) => {
-  res.json(series);
+// Define a GraphQL type for Series
+const SeriesType = new GraphQLObjectType({
+  name: "Series",
+  fields: () => ({
+    title: { type: GraphQLString },
+    year: { type: GraphQLString },
+    genre: { type: GraphQLString },
+    seasons: { type: GraphQLString },
+  }),
 });
 
-// Endpoint to get a specific series by title
+// Define a Root Query for GraphQL
+const RootQuery = new GraphQLObjectType({
+  name: "RootQuery",
+  fields: {
+    series: {
+      type: new GraphQLList(SeriesType),
+      resolve: () => seriesData,
+    },
+    seriesByTitle: {
+      type: SeriesType,
+      args: {
+        title: { type: GraphQLString },
+      },
+      resolve: (parent, args) =>
+        seriesData.find((s) => s.title.toLowerCase() === args.title.toLowerCase()),
+    },
+  },
+});
+
+// Create a GraphQL schema
+const schema = new GraphQLSchema({
+  query: RootQuery,
+});
+
+// GraphQL endpoint
+app.use("/graphql", graphqlHTTP({ schema, graphiql: true }));
+
+// Function to find a series by title
+const findSeriesByTitle = (title) => {
+  return seriesData.find((s) => s.title.toLowerCase() === title.toLowerCase());
+};
+
+// REST endpoint to get all series
+app.get("/api/series", (req, res) => {
+  res.json(seriesData);
+});
+
+// REST endpoint to get a specific series by title
 app.get("/api/series/:title", (req, res) => {
   const requestedTitle = req.params.title;
   const foundSeries = findSeriesByTitle(requestedTitle);
@@ -45,7 +86,7 @@ app.get("/api/series/:title", (req, res) => {
   }
 });
 
-// Endpoint to get specific property (title, year, genre, seasons)
+// REST endpoint to get specific property (title, year, genre, seasons)
 app.get("/api/series/:title/:property", (req, res) => {
   const requestedTitle = req.params.title;
   const requestedProperty = req.params.property;
